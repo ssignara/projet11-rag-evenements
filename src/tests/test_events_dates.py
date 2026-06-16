@@ -1,4 +1,5 @@
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
+
 import pandas as pd
 
 
@@ -7,10 +8,10 @@ def test_events_less_than_one_year_old():
 
     df["Première date - Début"] = pd.to_datetime(
         df["Première date - Début"],
-        utc=True
+        utc=True,
     )
 
-    one_year_ago = datetime.now(timezone.utc) - timedelta(days=365)
+    one_year_ago = pd.Timestamp.now(tz="UTC").normalize() - pd.Timedelta(days=365)
 
     old_events = df[df["Première date - Début"] < one_year_ago]
 
