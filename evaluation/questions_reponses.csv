@@ -1,0 +1,11 @@
+question,reponse_attendue
+Je cherche une exposition scientifique à Paris,Le système doit recommander une exposition liée aux sciences ou à la recherche située à Paris.
+Quels événements pour enfants en Île-de-France ?,Le système doit recommander des événements adaptés au jeune public ou aux familles en Île-de-France.
+Je cherche un concert à Versailles,Le système doit recommander un événement musical ou un concert situé à Versailles.
+Je veux une activité autour de la musique ce week-end,Le système doit recommander un événement musical correspondant au week-end courant si disponible.
+Je cherche une conférence scientifique,Le système doit recommander une conférence ou rencontre liée aux sciences.
+Je cherche une activité gratuite,Le système doit recommander un événement dont les conditions indiquent une gratuité ou une entrée libre.
+Je cherche une visite guidée à Paris,Le système doit recommander une visite guidée située à Paris.
+Je cherche un atelier créatif,Le système doit recommander un atelier ou une activité créative.
+Je cherche une activité à faire en famille,Le système doit recommander un événement adapté aux familles.
+Je cherche une exposition d'art,Le système doit recommander une exposition liée à l'art.
