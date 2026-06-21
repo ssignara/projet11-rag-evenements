@@ -18,7 +18,7 @@ RAW_OUTPUT_FILE = "data/raw/openagenda_events_raw.csv"
 CLEAN_OUTPUT_FILE = "data/processed/openagenda_events_clean.csv"
 
 
-def fetch_events_from_api(size: int = 100, max_pages: int = 30) -> list:
+def fetch_events_from_api(size: int = 100, max_pages: int = 200) -> list:
     if not API_KEY:
         raise ValueError("OPENAGENDA_API_KEY est absente du fichier .env")
 
@@ -62,10 +62,7 @@ def get_text_value(value) -> str:
 def normalize_region(value: str) -> str:
     value = str(value).lower().strip()
     value = unicodedata.normalize("NFKD", value)
-    value = "".join(
-        char for char in value
-        if not unicodedata.combining(char)
-    )
+    value = "".join(char for char in value if not unicodedata.combining(char))
     value = value.replace("-", " ")
     value = " ".join(value.split())
     return value
@@ -76,7 +73,6 @@ def normalize_events(events: list) -> pd.DataFrame:
 
     for event in events:
         location = event.get("location") or {}
-
         first_timing = event.get("firstTiming") or {}
         last_timing = event.get("lastTiming") or {}
 
@@ -105,6 +101,8 @@ def normalize_events(events: list) -> pd.DataFrame:
                 "Dernière date - Fin": last_timing.get("end"),
                 "Nom du lieu": location.get("name"),
                 "Adresse": location.get("address"),
+                "Latitude": location.get("latitude"),
+                "Longitude": location.get("longitude"),
                 "Code postal": location.get("postalCode"),
                 "Ville": location.get("city"),
                 "Département": location.get("department"),
@@ -147,7 +145,6 @@ def clean_events(df: pd.DataFrame) -> pd.DataFrame:
 
     df = df.dropna(subset=["Identifiant", "Titre", "Première date - Début"])
     df = df.drop_duplicates(subset=["Identifiant"])
-
     df = df[df["Première date - Début"] >= one_year_ago]
 
     df["region_normalized"] = df["Région"].fillna("").apply(normalize_region)
@@ -175,6 +172,9 @@ def clean_events(df: pd.DataFrame) -> pd.DataFrame:
     for col in text_columns:
         df[col] = df[col].fillna("").astype(str)
 
+    df["Latitude"] = pd.to_numeric(df["Latitude"], errors="coerce")
+    df["Longitude"] = pd.to_numeric(df["Longitude"], errors="coerce")
+
     df["text_for_embedding"] = (
         "Titre : " + df["Titre"] + "\n"
         "Description : " + df["Description"] + "\n"
@@ -184,6 +184,11 @@ def clean_events(df: pd.DataFrame) -> pd.DataFrame:
         "Lieu : " + df["Nom du lieu"] + ", " + df["Adresse"] + ", " + df["Ville"] + "\n"
         "Département : " + df["Département"].fillna("").astype(str) + "\n"
         "Région : " + df["Région"] + "\n"
+        "Coordonnées GPS : "
+        + df["Latitude"].astype(str)
+        + ", "
+        + df["Longitude"].astype(str)
+        + "\n"
         "Date de début : " + df["Première date - Début"].astype(str) + "\n"
         "Date de fin : " + df["Dernière date - Fin"].astype(str)
     )
@@ -200,7 +205,7 @@ def save_datasets(df_raw: pd.DataFrame, df_clean: pd.DataFrame) -> None:
 
 
 def main() -> None:
-    events = fetch_events_from_api(size=100, max_pages=300)
+    events = fetch_events_from_api(size=100, max_pages=200)
 
     df_raw = normalize_events(events)
     df_clean = clean_events(df_raw)
@@ -213,7 +218,11 @@ def main() -> None:
     print(f"Dataset propre sauvegardé : {CLEAN_OUTPUT_FILE}")
 
     if not df_clean.empty:
-        print(df_clean[["Titre", "Ville", "Première date - Début", "Région"]].head())
+        print(
+            df_clean[
+                ["Titre", "Ville", "Première date - Début", "Région", "Latitude", "Longitude"]
+            ].head()
+        )
 
 
 if __name__ == "__main__":
