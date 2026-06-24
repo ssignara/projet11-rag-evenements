@@ -19,6 +19,25 @@ CLEAN_OUTPUT_FILE = "data/processed/openagenda_events_clean.csv"
 
 
 def fetch_events_from_api(size: int = 100, max_pages: int = 200) -> list:
+    """
+    Récupère les événements depuis l'API OpenAgenda.
+
+    La récupération est paginée afin de collecter plusieurs milliers
+    d'événements. Un filtre temporel est appliqué directement dans
+    l'appel API pour ne récupérer que des événements récents, datant
+    de moins d'un an.
+
+    Args:
+        size: Nombre d'événements récupérés par page.
+        max_pages: Nombre maximal de pages à parcourir.
+
+    Returns:
+        Liste brute des événements retournés par l'API OpenAgenda.
+
+    Raises:
+        ValueError: Si la clé API OpenAgenda est absente du fichier .env.
+        requests.HTTPError: Si l'appel API échoue.
+    """
     if not API_KEY:
         raise ValueError("OPENAGENDA_API_KEY est absente du fichier .env")
 
@@ -52,6 +71,20 @@ def fetch_events_from_api(size: int = 100, max_pages: int = 200) -> list:
 
 
 def get_text_value(value) -> str:
+    """
+    Extrait une valeur textuelle depuis un champ OpenAgenda multilingue.
+
+    Certains champs de l'API OpenAgenda sont retournés sous forme de
+    dictionnaire avec plusieurs langues, par exemple {"fr": "...", "en": "..."}.
+    Cette fonction privilégie le français, puis l'anglais, et retourne une
+    chaîne vide si aucune valeur exploitable n'est disponible.
+
+    Args:
+        value: Valeur brute issue de l'API OpenAgenda.
+
+    Returns:
+        Texte normalisé sous forme de chaîne de caractères.
+    """
     if isinstance(value, dict):
         return value.get("fr") or value.get("en") or ""
     if isinstance(value, str):
@@ -60,6 +93,20 @@ def get_text_value(value) -> str:
 
 
 def normalize_region(value: str) -> str:
+    """
+    Normalise le nom d'une région pour faciliter le filtrage géographique.
+
+    Cette fonction met le texte en minuscules, supprime les accents,
+    remplace les tirets par des espaces et supprime les espaces multiples.
+    Elle permet notamment de gérer plusieurs écritures possibles de
+    "Île-de-France".
+
+    Args:
+        value: Nom de région brut.
+
+    Returns:
+        Nom de région normalisé.
+    """
     value = str(value).lower().strip()
     value = unicodedata.normalize("NFKD", value)
     value = "".join(char for char in value if not unicodedata.combining(char))
@@ -69,6 +116,20 @@ def normalize_region(value: str) -> str:
 
 
 def normalize_events(events: list) -> pd.DataFrame:
+    """
+    Transforme les événements JSON OpenAgenda en DataFrame structuré.
+
+    Cette étape sélectionne et renomme les champs utiles au projet RAG :
+    titre, description, dates, lieu, ville, région, coordonnées GPS,
+    catégorie et informations d'agenda. Les mots-clés sont également
+    convertis en chaîne de caractères exploitable.
+
+    Args:
+        events: Liste d'événements bruts issus de l'API OpenAgenda.
+
+    Returns:
+        DataFrame Pandas contenant les événements normalisés.
+    """
     rows = []
 
     for event in events:
@@ -124,6 +185,25 @@ def normalize_events(events: list) -> pd.DataFrame:
 
 
 def clean_events(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Nettoie, filtre et enrichit le DataFrame d'événements.
+
+    Les traitements appliqués sont :
+    - conversion des dates au format datetime UTC ;
+    - suppression des événements incomplets ;
+    - suppression des doublons ;
+    - conservation des événements de moins d'un an ;
+    - filtrage sur la région Île-de-France ;
+    - normalisation des colonnes textuelles ;
+    - conversion des coordonnées GPS en valeurs numériques ;
+    - création du champ text_for_embedding utilisé pour la vectorisation.
+
+    Args:
+        df: DataFrame contenant les événements normalisés.
+
+    Returns:
+        DataFrame nettoyé, filtré et prêt à être indexé dans FAISS.
+    """
     if df.empty:
         return df
 
@@ -197,6 +277,17 @@ def clean_events(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def save_datasets(df_raw: pd.DataFrame, df_clean: pd.DataFrame) -> None:
+    """
+    Sauvegarde les jeux de données brut et nettoyé au format CSV.
+
+    Le dataset brut permet de conserver une trace des données récupérées
+    depuis l'API, tandis que le dataset nettoyé est utilisé pour la
+    vectorisation et l'indexation dans FAISS.
+
+    Args:
+        df_raw: DataFrame contenant les données normalisées non filtrées.
+        df_clean: DataFrame contenant les données nettoyées et filtrées.
+    """
     os.makedirs("data/raw", exist_ok=True)
     os.makedirs("data/processed", exist_ok=True)
 
@@ -205,6 +296,16 @@ def save_datasets(df_raw: pd.DataFrame, df_clean: pd.DataFrame) -> None:
 
 
 def main() -> None:
+    """
+    Exécute le pipeline complet d'ingestion et de prétraitement.
+
+    Les étapes exécutées sont :
+    1. récupération des événements depuis l'API OpenAgenda ;
+    2. normalisation des événements ;
+    3. nettoyage et filtrage du dataset ;
+    4. sauvegarde des fichiers CSV brut et nettoyé ;
+    5. affichage d'un résumé d'exécution.
+    """
     events = fetch_events_from_api(size=100, max_pages=200)
 
     df_raw = normalize_events(events)
